@@ -1,0 +1,3 @@
+# This project uses Node.js/React (no Python runtime required).
+# No Python packages are needed.
+# Left intentionally blank for pip compatibility.
