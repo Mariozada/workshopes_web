@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { Link } from 'react-router-dom';
 import { Plus, Edit, Trash2, Eye, Search, Filter, Calendar, Users, DollarSign } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { workshopService } from '../../services/workshopService';
+import { workshopAPI } from '../../services/api';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 
 export const AdminWorkshopsPage = () => {
@@ -18,7 +18,7 @@ export const AdminWorkshopsPage = () => {
   // Fetch workshops
   const { data: workshops, isLoading, error } = useQuery(
     ['admin-workshops', searchTerm, selectedCategory, statusFilter],
-    () => workshopService.getWorkshops({
+    () => workshopAPI.getWorkshops({
       search: searchTerm,
       category: selectedCategory,
       status: statusFilter
@@ -30,7 +30,7 @@ export const AdminWorkshopsPage = () => {
   );
 
   // Delete mutation
-  const deleteMutation = useMutation(workshopService.deleteWorkshop, {
+  const deleteMutation = useMutation(workshopAPI.deleteWorkshop, {
     onSuccess: () => {
       queryClient.invalidateQueries('admin-workshops');
       toast.success('Workshop deleted successfully');
@@ -258,8 +258,8 @@ function WorkshopModal({ workshop, onClose, onSuccess }) {
 
   const mutation = useMutation(
     workshop 
-      ? (data) => workshopService.updateWorkshop(workshop.id, data)
-      : workshopService.createWorkshop,
+      ? (data) => workshopAPI.updateWorkshop(workshop.id, data)
+      : workshopAPI.createWorkshop,
     {
       onSuccess: () => {
         toast.success(`Workshop ${workshop ? 'updated' : 'created'} successfully`);

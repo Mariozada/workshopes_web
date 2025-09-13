@@ -18,87 +18,85 @@ router.get('/', optionalAuth, async (req, res) => {
             status = 'active'
         } = req.query;
 
-        const offset = (page - 1) * limit;
-        let whereConditions = ['w.status = ?'];
-        let queryParams = [status];
+        // Coerce and clamp pagination values
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
+        const offsetNum = (pageNum - 1) * limitNum;
 
-        // Add filters
+        // Build WHERE clause and params (exclude userId here)
+        const whereConditions = ['w.status = ?'];
+        const whereParams = [status];
+
         if (category) {
             whereConditions.push('w.category = ?');
-            queryParams.push(category);
+            whereParams.push(category);
         }
-
         if (search) {
             whereConditions.push('(w.title LIKE ? OR w.description LIKE ? OR w.instructor LIKE ?)');
-            const searchTerm = `%${search}%`;
-            queryParams.push(searchTerm, searchTerm, searchTerm);
+            const s = `%${search}%`;
+            whereParams.push(s, s, s);
         }
-
         if (date_from) {
             whereConditions.push('w.date >= ?');
-            queryParams.push(date_from);
+            whereParams.push(date_from);
         }
-
         if (date_to) {
             whereConditions.push('w.date <= ?');
-            queryParams.push(date_to);
+            whereParams.push(date_to);
         }
 
         const whereClause = whereConditions.join(' AND ');
 
-        // Get workshops with booking info
+        // Build main query
         let workshopQuery = `
             SELECT 
                 w.*,
                 (w.max_capacity - w.current_bookings) as available_seats,
-                CASE WHEN w.current_bookings >= w.max_capacity THEN 1 ELSE 0 END as is_full
-        `;
+                CASE WHEN w.current_bookings >= w.max_capacity THEN 1 ELSE 0 END as is_full`;
 
-        // If user is authenticated, check if they have booked this workshop
+        let params = [];
         if (req.user) {
             workshopQuery += `,
                 CASE WHEN b.id IS NOT NULL THEN 1 ELSE 0 END as user_has_booked
             FROM workshops w
-            LEFT JOIN bookings b ON w.id = b.workshop_id AND b.user_id = ? AND b.status = 'confirmed'
-            `;
-            queryParams.unshift(req.user.id);
+            LEFT JOIN bookings b ON w.id = b.workshop_id AND b.user_id = ? AND b.status = 'confirmed'`;
+            params.push(req.user.id);
         } else {
             workshopQuery += `
-            FROM workshops w
-            `;
+            FROM workshops w`;
         }
 
         workshopQuery += `
             WHERE ${whereClause}
             ORDER BY w.date ASC, w.start_time ASC
-            LIMIT ? OFFSET ?
+            LIMIT ${limitNum} OFFSET ${offsetNum}
         `;
 
-        queryParams.push(parseInt(limit), parseInt(offset));
+        // Append where params after potential userId
+        params = params.concat(whereParams);
 
-        const workshops = await executeQuery(workshopQuery, queryParams);
+        const workshops = await executeQuery(workshopQuery, params);
 
-        // Get total count for pagination
+        // Total count (no LIMIT/OFFSET)
         const countQuery = `
             SELECT COUNT(*) as total
             FROM workshops w
             WHERE ${whereClause}
         `;
-        const countParams = req.user ? queryParams.slice(1, -2) : queryParams.slice(0, -2);
-        const [countResult] = await executeQuery(countQuery, countParams);
+        const [countResult] = await executeQuery(countQuery, whereParams);
 
         const totalWorkshops = countResult.total;
-        const totalPages = Math.ceil(totalWorkshops / limit);
+        const totalPages = Math.ceil(totalWorkshops / limitNum);
 
         res.json({
             success: true,
             data: {
                 workshops,
                 pagination: {
-                    current_page: parseInt(page),
+                    current_page: pageNum,
                     total_pages: totalPages,
                     total_items: totalWorkshops,
-                    items_per_page: parseInt(limit)
+                    items_per_page: limitNum
                 }
             }
         });

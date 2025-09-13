@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { Search, Filter, Calendar, User, Mail, Phone, MapPin, DollarSign, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { bookingService } from '../../services/bookingService';
+import { bookingAPI } from '../../services/api';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 
 export const AdminBookingsPage = () => {
@@ -16,7 +16,7 @@ export const AdminBookingsPage = () => {
   // Fetch all bookings
   const { data: bookings, isLoading, error } = useQuery(
     ['admin-bookings', searchTerm, statusFilter, workshopFilter, dateFilter],
-    () => bookingService.getAllBookings({
+    () => bookingAPI.getAllBookings({
       search: searchTerm,
       status: statusFilter,
       workshop: workshopFilter,
@@ -30,7 +30,7 @@ export const AdminBookingsPage = () => {
 
   // Update booking status mutation
   const updateStatusMutation = useMutation(
-    ({ bookingId, status }) => bookingService.updateBookingStatus(bookingId, status),
+    ({ bookingId, status }) => bookingAPI.updateBookingStatus(bookingId, status),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('admin-bookings');
@@ -43,7 +43,7 @@ export const AdminBookingsPage = () => {
   );
 
   // Cancel booking mutation
-  const cancelBookingMutation = useMutation(bookingService.cancelBooking, {
+  const cancelBookingMutation = useMutation(bookingAPI.cancelBooking, {
     onSuccess: () => {
       queryClient.invalidateQueries('admin-bookings');
       toast.success('Booking cancelled successfully');

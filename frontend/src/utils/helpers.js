@@ -53,32 +53,40 @@ export const getRelativeDate = (date) => {
   return format(dateObj, 'MMM d, yyyy');
 };
 
+// Helper: build a Date at the workshop's start time from date + time
+const getWorkshopStartDate = (date, time) => {
+  if (!date) return null;
+  const base = typeof date === 'string' ? parseISO(date) : new Date(date);
+  if (!time) return base;
+  const [h, m] = time.split(':');
+  base.setHours(parseInt(h || '0', 10), parseInt(m || '0', 10), 0, 0);
+  return base;
+};
+
 // Check if workshop is bookable
 export const isWorkshopBookable = (workshop) => {
   if (!workshop) return false;
-  
-  const workshopDate = new Date(`${workshop.date} ${workshop.start_time}`);
+  const start = getWorkshopStartDate(workshop.date, workshop.start_time);
+  if (!start || isNaN(start.getTime())) return false;
   const now = new Date();
-  
   return (
     workshop.status === 'active' &&
-    workshopDate > now &&
-    workshop.current_bookings < workshop.max_capacity
+    start > now &&
+    Number(workshop.current_bookings || 0) < Number(workshop.max_capacity || 0)
   );
 };
 
 // Get workshop status
 export const getWorkshopStatus = (workshop) => {
   if (!workshop) return 'unknown';
-  
-  const workshopDate = new Date(`${workshop.date} ${workshop.start_time}`);
+  const start = getWorkshopStartDate(workshop.date, workshop.start_time);
+  if (!start || isNaN(start.getTime())) return 'unknown';
   const now = new Date();
-  
+
   if (workshop.status === 'cancelled') return 'cancelled';
-  if (workshopDate < now) return 'completed';
-  if (workshop.current_bookings >= workshop.max_capacity) return 'full';
-  if (workshopDate <= new Date(now.getTime() + 24 * 60 * 60 * 1000)) return 'upcoming';
-  
+  if (start < now) return 'completed';
+  if (Number(workshop.current_bookings || 0) >= Number(workshop.max_capacity || 0)) return 'full';
+  if (start <= new Date(now.getTime() + 24 * 60 * 60 * 1000)) return 'upcoming';
   return 'available';
 };
 
